@@ -44,16 +44,6 @@ using namespace boost::asio::ssl;
 typedef boost::asio::detail::socket_option::boolean<SOL_SOCKET, SO_REUSEPORT> reuse_port;
 #endif // ENABLE_REUSE_PORT
 
-std::vector<std::string> split(const std::string &str, char delim) {
-    std::vector<std::string> out;
-    std::istringstream iss(str);
-    std::string item;
-    while (std::getline(iss, item, delim)) {
-        out.push_back(item);
-    }
-    return out;
-}
-
 Service::Service(Config &config, bool test) :
     config(config),
     socket_acceptor(io_context),
@@ -66,25 +56,9 @@ Service::Service(Config &config, bool test) :
     }
 #endif // ENABLE_NAT
     if (!test) {
-        unsigned char dual_stack = 0;
-        tcp::endpoint listen_endpoint_v4;
-        tcp::endpoint listen_endpoint_v6;
         tcp::resolver resolver(io_context);
-        std::vector<std::string> addr_vector = split(config.local_addr, ',');
-        for (const std::string &addr:addr_vector) {
-            in_addr addr4{};
-            in6_addr addr6{};
-            if (1 == inet_pton(AF_INET, addr.c_str(), &addr4)) {
-                dual_stack|=DUAL_STACK_V4;
-                listen_endpoint_v4 = *resolver.resolve(addr, to_string(config.local_port)).begin();
-                socket_acceptor.open(listen_endpoint_v4.protocol());
-            }
-            else if (1 == inet_pton(AF_INET6, addr.c_str(), &addr6)) {
-                dual_stack|=DUAL_STACK_V6;
-                listen_endpoint_v6 = *resolver.resolve(addr, to_string(config.local_port)).begin();
-                socket_acceptor.open(listen_endpoint_v6.protocol());
-            }
-        }
+        tcp::endpoint listen_endpoint = *resolver.resolve(config.local_addr, to_string(config.local_port)).begin();
+        socket_acceptor.open(listen_endpoint.protocol());
         socket_acceptor.set_option(tcp::acceptor::reuse_address(true));
 
         if (config.tcp.reuse_port) {
@@ -95,26 +69,12 @@ Service::Service(Config &config, bool test) :
 #endif // ENABLE_REUSE_PORT
         }
 
-        if (dual_stack & DUAL_STACK_V4) {
-            socket_acceptor.bind(listen_endpoint_v4);
-        }
-        if (dual_stack & DUAL_STACK_V6) {
-            socket_acceptor.bind(listen_endpoint_v6);
-        }
+        socket_acceptor.bind(listen_endpoint);
         socket_acceptor.listen();
         if (config.run_type == Config::FORWARD) {
-            if (dual_stack & DUAL_STACK_V4)
-            {
-                auto udp_bind_endpoint_v4 = udp::endpoint(listen_endpoint_v4.address(), listen_endpoint_v4.port());
-                udp_socket.open(udp_bind_endpoint_v4.protocol());
-                udp_socket.bind(udp_bind_endpoint_v4);
-            }
-            if (dual_stack & DUAL_STACK_V6)
-            {
-                auto udp_bind_endpoint_v6 = udp::endpoint(listen_endpoint_v6.address(), listen_endpoint_v6.port());
-                udp_socket.open(udp_bind_endpoint_v6.protocol());
-                udp_socket.bind(udp_bind_endpoint_v6);
-            }
+            auto udp_bind_endpoint = udp::endpoint(listen_endpoint.address(), listen_endpoint.port());
+            udp_socket.open(udp_bind_endpoint.protocol());
+            udp_socket.bind(udp_bind_endpoint);
         }
     }
     Log::level = config.log_level;
