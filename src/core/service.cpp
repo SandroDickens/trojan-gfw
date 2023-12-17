@@ -44,6 +44,19 @@ using namespace boost::asio::ssl;
 typedef boost::asio::detail::socket_option::boolean<SOL_SOCKET, SO_REUSEPORT> reuse_port;
 #endif // ENABLE_REUSE_PORT
 
+bool is_ipv6_addr(const std::string &addr) {
+    bool is_v6 = false;
+    in_addr addr4{};
+    in6_addr addr6{};
+    if (1 == inet_pton(AF_INET, addr.c_str(), &addr4)) {
+        is_v6 = false;
+    }
+    else if (1 == inet_pton(AF_INET6, addr.c_str(), &addr6)) {
+        is_v6 = true;
+    }
+    return is_v6;
+}
+
 Service::Service(Config &config, bool test) :
     config(config),
     socket_acceptor(io_context),
@@ -60,6 +73,9 @@ Service::Service(Config &config, bool test) :
         tcp::endpoint listen_endpoint = *resolver.resolve(config.local_addr, to_string(config.local_port)).begin();
         socket_acceptor.open(listen_endpoint.protocol());
         socket_acceptor.set_option(tcp::acceptor::reuse_address(true));
+        if (is_ipv6_addr(config.local_addr)) {
+            socket_acceptor.set_option(boost::asio::ip::v6_only(true));
+        }
 
         if (config.tcp.reuse_port) {
 #ifdef ENABLE_REUSE_PORT
