@@ -24,6 +24,12 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 - [OpenSSL](https://www.openssl.org/) >= 1.1.0
 - [libmysqlclient](https://dev.mysql.com/downloads/connector/c/)
 
+## Build
+
+```shell
+cmake -DENABLE_MYSQL=OFF -S . -B build-release -DCMAKE_BUILD_TYPE=Release -DBOOST_ROOT=/usr/local/boost
+```
+
 ## License
 
 [GPLv3](LICENSE)

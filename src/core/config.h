@@ -25,6 +25,9 @@
 #include <boost/property_tree/ptree.hpp>
 #include "log.h"
 
+constexpr unsigned char DUAL_STACK_V4 = 0x01;
+constexpr unsigned char DUAL_STACK_V6 = 0x02;
+
 class Config {
 public:
     enum RunType {
